@@ -7,8 +7,8 @@ class AddMedicamentUI(tk.Toplevel):
         super().__init__(parent)
         self.refresh_callback = refresh_callback
         self.title("Ajouter un médicament")
-        self.geometry("400x380")
-        self.resizable(False, False)
+        self.geometry("450x450")
+        self.resizable(True, True)
 
         self.entries = {}
 

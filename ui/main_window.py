@@ -11,7 +11,7 @@ class MainWindow:
         self.cart = {}
 
         self.root = tk.Tk()
-        self.root.title("Gestion de Pharmacie")
+        self.root.title("Système de Gestion de Pharmacie")
         self.root.geometry("1400x800")
 
         main_frame = tk.Frame(self.root)
@@ -21,36 +21,56 @@ class MainWindow:
         top_frame = tk.Frame(main_frame)
         top_frame.pack(fill="x")
 
+        # ----- CLIENTS -----
         clients_frame = tk.LabelFrame(top_frame, text="Gestion des clients")
         clients_frame.pack(side="left", expand=True, fill="both", padx=5)
 
-        tk.Label(clients_frame, text="Module clients\n(implémenté par collègue)", fg="gray").pack(expand=True)
-        tk.Button(clients_frame, text="Ouvrir", state="disabled").pack(pady=10)
+        tk.Label(
+            clients_frame,
+            text="Module clients\n(implémenté par collègue)",
+            fg="gray"
+        ).pack(expand=True)
 
+        tk.Button(
+            clients_frame,
+            text="Ouvrir gestion clients",
+            state="disabled"
+        ).pack(pady=10)
+
+        # ----- ORDONNANCES -----
         ord_frame = tk.LabelFrame(top_frame, text="Ordonnances")
         ord_frame.pack(side="left", expand=True, fill="both", padx=5)
 
-        tk.Label(ord_frame, text="Module ordonnances\n(implémenté par collègue)", fg="gray").pack(expand=True)
-        tk.Button(ord_frame, text="Traiter ordonnance", state="disabled").pack(pady=10)
+        tk.Label(
+            ord_frame,
+            text="Module ordonnances\n(implémenté par collègue)",
+            fg="gray"
+        ).pack(expand=True)
+
+        tk.Button(
+            ord_frame,
+            text="Traiter ordonnance",
+            state="disabled"
+        ).pack(pady=10)
 
         # ================= FRAME BAS =================
         bottom_frame = tk.Frame(main_frame)
         bottom_frame.pack(expand=True, fill="both", pady=10)
 
-        # -------- VENTE --------
+        # ----- VENTE -----
         vente_frame = tk.LabelFrame(bottom_frame, text="Vente / Panier")
         vente_frame.pack(side="left", expand=True, fill="both", padx=5)
 
         self.table = ttk.Treeview(
             vente_frame,
-            columns=("code", "nom", "qte", "prix"),
+            columns=("code", "nom", "quantite", "prix"),
             show="headings"
         )
 
         for c, t in {
             "code": "Code",
             "nom": "Médicament",
-            "qte": "Quantité",
+            "quantite": "Quantité",
             "prix": "Prix (€)"
         }.items():
             self.table.heading(c, text=t)
@@ -61,25 +81,54 @@ class MainWindow:
         btns = tk.Frame(vente_frame)
         btns.pack(fill="x")
 
-        tk.Button(btns, text="Ajouter médicament", command=self.open_selector).pack(side="left", padx=5)
-        tk.Button(btns, text="Supprimer", command=self.remove_from_cart).pack(side="left", padx=5)
-        tk.Button(btns, text="Valider la vente", bg="#4CAF50", fg="black", command=self.validate_sale).pack(side="right", padx=5)
+        tk.Button(
+            btns,
+            text="Ajouter un médicament",
+            command=self.open_selector
+        ).pack(side="left", padx=5)
 
-        # -------- ADMIN --------
+        tk.Button(
+            btns,
+            text="Supprimer du panier",
+            command=self.remove_from_cart
+        ).pack(side="left", padx=5)
+
+        tk.Button(
+            btns,
+            text="Valider la vente",
+            bg="#4CAF50",
+            fg="white",
+            command=self.validate_sale
+        ).pack(side="right", padx=5)
+
+        # ----- ADMIN / STOCK -----
         admin_frame = tk.LabelFrame(bottom_frame, text="Administration")
         admin_frame.pack(side="left", expand=True, fill="both", padx=5)
 
-        tk.Label(admin_frame, text="Gestion des médicaments\net des stocks", fg="gray").pack(pady=30)
-
-        tk.Button(
+        tk.Label(
             admin_frame,
-            text="Ouvrir gestion des stocks",
-            width=30,
-            height=2,
-            command=lambda: StockUI(self.root, self.user)
-        ).pack()
+            text=f"Utilisateur : {self.user['role']}",
+            fg="gray"
+        ).pack(pady=20)
+
+        if self.user["role"] in ["ADMIN", "PHARMACIEN", "PREPARATEUR"]:
+            tk.Button(
+                admin_frame,
+                text="Ouvrir gestion des stocks",
+                width=30,
+                height=2,
+                command=self.open_stocks
+            ).pack()
+        else:
+            tk.Label(
+                admin_frame,
+                text="Accès stocks non autorisé",
+                fg="red"
+            ).pack()
 
         self.root.mainloop()
+
+    # ================= LOGIQUE =================
 
     def open_selector(self):
         SelectMedicamentUI(self.root, self.add_to_cart)
@@ -118,3 +167,6 @@ class MainWindow:
             messagebox.showinfo("Succès", "Vente validée")
         except Exception as e:
             messagebox.showerror("Erreur", str(e))
+
+    def open_stocks(self):
+        StockUI(self.root, self.user)

@@ -14,8 +14,13 @@ class StockUI(tk.Toplevel):
         self.user = user
         self.title("Gestion des stocks")
         self.geometry("1350x780")
+        self.resizable(True, True)
+        if self.user["role"] == "CONSEILLER":
+            self.entree_qte.config(state="disabled")
+            self.entree_prix.config(state="disabled")
 
-        # ================= FRAME HAUT =================
+
+    # ================= FRAME HAUT =================
         top_frame = tk.Frame(self)
         top_frame.pack(fill="x", padx=10, pady=5)
 
