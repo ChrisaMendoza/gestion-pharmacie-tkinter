@@ -3,12 +3,16 @@ from tkinter import ttk, messagebox
 from ui.stock_ui import StockUI
 from ui.select_medicament_ui import SelectMedicamentUI
 from services.stock_service import sortie_stock_vente
+from modules.clients_view import ClientsFrame
+from modules.prescriptions_view import PrescriptionsFrame
 
 
 class MainWindow:
     def __init__(self, user):
         self.user = user
         self.cart = {}
+        self.clients_window = None
+        self.ord_window = None
 
         self.root = tk.Tk()
         self.root.title("Système de Gestion de Pharmacie")
@@ -34,7 +38,7 @@ class MainWindow:
         tk.Button(
             clients_frame,
             text="Ouvrir gestion clients",
-            state="disabled"
+            command=self.open_clients
         ).pack(pady=10)
 
         # ----- ORDONNANCES -----
@@ -50,7 +54,7 @@ class MainWindow:
         tk.Button(
             ord_frame,
             text="Traiter ordonnance",
-            state="disabled"
+            command=self.open_prescriptions
         ).pack(pady=10)
 
         # ================= FRAME BAS =================
@@ -170,3 +174,37 @@ class MainWindow:
 
     def open_stocks(self):
         StockUI(self.root, self.user)
+
+    def open_clients(self):
+        if self.clients_window and self.clients_window.winfo_exists():
+            self.clients_window.focus()
+            return
+        win = tk.Toplevel(self.root)
+        win.title("Gestion des clients")
+        win.geometry("950x700")
+        frame = ClientsFrame(win)
+        frame.pack(fill="both", expand=True)
+        self.clients_window = win
+        win.protocol("WM_DELETE_WINDOW", lambda: self._close_clients(win))
+
+    def _close_clients(self, win):
+        win.destroy()
+        if self.clients_window == win:
+            self.clients_window = None
+
+    def open_prescriptions(self):
+        if self.ord_window and self.ord_window.winfo_exists():
+            self.ord_window.focus()
+            return
+        win = tk.Toplevel(self.root)
+        win.title("Ordonnances")
+        win.geometry("1250x800")
+        frame = PrescriptionsFrame(win)
+        frame.pack(fill="both", expand=True)
+        self.ord_window = win
+        win.protocol("WM_DELETE_WINDOW", lambda: self._close_prescriptions(win))
+
+    def _close_prescriptions(self, win):
+        win.destroy()
+        if self.ord_window == win:
+            self.ord_window = None
