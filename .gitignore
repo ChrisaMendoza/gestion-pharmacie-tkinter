@@ -1,0 +1,21 @@
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ===== Environnements =====
+.env
+.venv/
+venv/
+
+# ===== Base de données locale =====
+pharmacie.db
+
+# ===== Dossiers générés =====
+docs/
+tickets/
+
+# ===== IDE / OS =====
+.idea/
+.DS_Store
