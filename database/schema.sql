@@ -2,11 +2,15 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS users (
                                      id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                     username TEXT UNIQUE NOT NULL,
-                                     password_hash TEXT NOT NULL,
-                                     role TEXT CHECK(role IN ('ADMIN','PHARMACIEN','ASSISTANT')) NOT NULL,
+                                     username TEXT UNIQUE,
+                                     password_hash TEXT,
+                                     role TEXT,
+                                     nom TEXT,
+                                     prenom TEXT,
+                                     email TEXT,
                                      actif INTEGER DEFAULT 1
 );
+
 
 CREATE TABLE IF NOT EXISTS laboratoires (
                                             id INTEGER PRIMARY KEY AUTOINCREMENT,
