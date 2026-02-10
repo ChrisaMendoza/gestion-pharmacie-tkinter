@@ -1,13 +1,15 @@
 import tkinter as tk
 from tkinter import messagebox
+
 from services.medicament_service import add_medicament
+from utils.window import autosize_and_center
+
 
 class AddMedicamentUI(tk.Toplevel):
     def __init__(self, parent, refresh_callback):
         super().__init__(parent)
         self.refresh_callback = refresh_callback
         self.title("Ajouter un médicament")
-        self.geometry("450x450")
         self.resizable(True, True)
 
         self.entries = {}
@@ -18,7 +20,7 @@ class AddMedicamentUI(tk.Toplevel):
             ("Catégorie", "categorie"),
             ("Prix (€)", "prix"),
             ("Stock initial", "stock"),
-            ("Date péremption (YYYY-MM-DD)", "peremption")
+            ("Date péremption (YYYY-MM-DD)", "peremption"),
         ]
 
         for i, (label, key) in enumerate(fields):
@@ -32,8 +34,10 @@ class AddMedicamentUI(tk.Toplevel):
             text="Ajouter",
             bg="#4CAF50",
             fg="black",
-            command=self.save
+            command=self.save,
         ).grid(row=len(fields), columnspan=2, pady=20)
+
+        autosize_and_center(self, min_w=450, min_h=320)
 
     def save(self):
         try:

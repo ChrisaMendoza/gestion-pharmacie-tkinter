@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import messagebox
+
 from services.medicament_service import add_medicament, update_medicament
+from utils.window import autosize_and_center
+
 
 class MedicamentFormUI(tk.Toplevel):
     def __init__(self, parent, refresh_callback, medicament=None):
@@ -8,7 +11,6 @@ class MedicamentFormUI(tk.Toplevel):
         self.refresh_callback = refresh_callback
         self.medicament = medicament
         self.title("Ajouter un médicament" if medicament is None else "Modifier un médicament")
-        self.geometry("400x300")
         self.resizable(False, False)
 
         self.entries = {}
@@ -20,18 +22,16 @@ class MedicamentFormUI(tk.Toplevel):
             e.grid(row=i, column=1, padx=10, pady=5)
             self.entries[field] = e
 
-        # Pré-remplissage si modification
         if medicament:
             for key, value in medicament.items():
                 self.entries[key].insert(0, value)
             self.entries["code"].config(state="disabled")
 
-        tk.Button(
-            self,
-            text="Enregistrer",
-            width=20,
-            command=self.save
-        ).grid(row=len(fields), columnspan=2, pady=20)
+        tk.Button(self, text="Enregistrer", width=20, command=self.save).grid(
+            row=len(fields), columnspan=2, pady=20
+        )
+
+        autosize_and_center(self, min_w=420, min_h=260)
 
     def save(self):
         data = {k: v.get() for k, v in self.entries.items()}

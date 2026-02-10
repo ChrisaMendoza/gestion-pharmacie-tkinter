@@ -1,11 +1,13 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
+
 from services.stock_service import entree_stock, sortie_stock, get_all_stocks
 from database.db import get_connection
 from ui.medicament_detail_ui import MedicamentDetailUI
 from ui.add_medicament_ui import AddMedicamentUI
 from ui.edit_medicament_ui import EditMedicamentUI
+from utils.window import autosize_and_center
 
 
 class StockUI(tk.Toplevel):
@@ -13,18 +15,12 @@ class StockUI(tk.Toplevel):
         super().__init__(parent)
         self.user = user
         self.title("Gestion des stocks")
-        self.geometry("1350x780")
         self.resizable(True, True)
-        if self.user["role"] == "CONSEILLER":
-            self.entree_qte.config(state="disabled")
-            self.entree_prix.config(state="disabled")
 
-
-    # ================= FRAME HAUT =================
+        # ================= FRAME HAUT =================
         top_frame = tk.Frame(self)
         top_frame.pack(fill="x", padx=10, pady=5)
 
-        # -------- ENTRÉE --------
         entree = tk.LabelFrame(top_frame, text="Entrée de stock")
         entree.pack(side="left", expand=True, fill="both", padx=5)
 
@@ -43,10 +39,10 @@ class StockUI(tk.Toplevel):
         self.entree_date = tk.Entry(entree)
         self.entree_date.grid(row=3, column=1)
 
-        tk.Button(entree, text="Valider entrée", command=self.handle_entree) \
-            .grid(row=4, columnspan=2, pady=5)
+        tk.Button(entree, text="Valider entrée", command=self.handle_entree).grid(
+            row=4, columnspan=2, pady=5
+        )
 
-        # -------- SORTIE --------
         sortie = tk.LabelFrame(top_frame, text="Sortie de stock")
         sortie.pack(side="left", expand=True, fill="both", padx=5)
 
@@ -57,8 +53,13 @@ class StockUI(tk.Toplevel):
         self.sortie_qte = tk.Entry(sortie)
         self.sortie_qte.grid(row=1, column=1)
 
-        tk.Button(sortie, text="Valider sortie", command=self.handle_sortie) \
-            .grid(row=2, columnspan=2, pady=5)
+        tk.Button(sortie, text="Valider sortie", command=self.handle_sortie).grid(
+            row=2, columnspan=2, pady=5
+        )
+
+        if self.user.get("role") == "CONSEILLER":
+            self.entree_qte.config(state="disabled")
+            self.entree_prix.config(state="disabled")
 
         # ================= RECHERCHE & FILTRES =================
         action_frame = tk.Frame(self)
@@ -73,11 +74,8 @@ class StockUI(tk.Toplevel):
         tk.Button(action_frame, text="Stock faible (<5)", command=self.filter_low).pack(side="left", padx=5)
         tk.Button(action_frame, text="Péremption dépassée", command=self.filter_expired).pack(side="left", padx=5)
 
-        tk.Button(action_frame, text="Ajouter", bg="#4CAF50", command=self.open_add) \
-            .pack(side="right", padx=5)
-
-        tk.Button(action_frame, text="Modifier", command=self.open_edit) \
-            .pack(side="right", padx=5)
+        tk.Button(action_frame, text="Ajouter", bg="#4CAF50", command=self.open_add).pack(side="right", padx=5)
+        tk.Button(action_frame, text="Modifier", command=self.open_edit).pack(side="right", padx=5)
 
         # ================= TABLE =================
         table_frame = tk.LabelFrame(self, text="Liste des médicaments")
@@ -86,7 +84,7 @@ class StockUI(tk.Toplevel):
         self.table = ttk.Treeview(
             table_frame,
             columns=("id", "code", "nom", "prix", "stock", "peremption"),
-            show="headings"
+            show="headings",
         )
 
         for c, t in {
@@ -95,7 +93,7 @@ class StockUI(tk.Toplevel):
             "nom": "Nom",
             "prix": "Prix (€)",
             "stock": "Stock",
-            "peremption": "Péremption"
+            "peremption": "Péremption",
         }.items():
             self.table.heading(c, text=t)
             self.table.column(c, anchor="center")
@@ -105,6 +103,8 @@ class StockUI(tk.Toplevel):
 
         self.data = []
         self.load_all()
+
+        autosize_and_center(self, min_w=1100, min_h=650)
 
     # ================= LOGIQUE =================
 
@@ -123,21 +123,14 @@ class StockUI(tk.Toplevel):
 
     def search(self):
         key = self.search_entry.get().lower()
-        self.refresh([
-            m for m in self.data
-            if key in m[1].lower() or key in m[2].lower()
-        ])
+        self.refresh([m for m in self.data if key in m[1].lower() or key in m[2].lower()])
 
     def filter_low(self):
-    # Stock faible = stock <= 5 (y compris 0)
         self.refresh([m for m in self.data if m[4] <= 5])
 
     def filter_expired(self):
         today = datetime.today().date()
-        self.refresh([
-            m for m in self.data
-            if m[5] and datetime.strptime(m[5], "%Y-%m-%d").date() < today
-        ])
+        self.refresh([m for m in self.data if m[5] and datetime.strptime(m[5], "%Y-%m-%d").date() < today])
 
     def refresh(self, rows):
         self.table.delete(*self.table.get_children())
@@ -163,12 +156,7 @@ class StockUI(tk.Toplevel):
     def handle_entree(self):
         try:
             med_id = int(self.entree_med.get().split(" - ")[0])
-            entree_stock(
-                med_id,
-                int(self.entree_qte.get()),
-                float(self.entree_prix.get()),
-                self.entree_date.get()
-            )
+            entree_stock(med_id, int(self.entree_qte.get()), float(self.entree_prix.get()), self.entree_date.get())
             self.load_all()
         except Exception as e:
             messagebox.showerror("Erreur", str(e))

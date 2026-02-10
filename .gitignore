@@ -10,7 +10,7 @@ __pycache__/
 venv/
 
 # ===== Base de données locale =====
-pharmacie.db
+database/pharmacie.db
 
 # ===== Dossiers générés =====
 docs/

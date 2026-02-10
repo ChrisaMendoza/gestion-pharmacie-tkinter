@@ -1,17 +1,19 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+
 from services.stock_service import get_medicaments_for_sale
 from ui.medicament_detail_ui import MedicamentDetailUI
+from utils.window import autosize_and_center
+
 
 class SelectMedicamentUI(tk.Toplevel):
     def __init__(self, parent, add_callback):
         super().__init__(parent)
         self.title("Ajouter un médicament à la vente")
-        self.geometry("850x500")
+        self.resizable(True, True)
 
         self.add_callback = add_callback
 
-        # ===== RECHERCHE =====
         search_frame = tk.Frame(self)
         search_frame.pack(fill="x", padx=10, pady=5)
 
@@ -22,11 +24,10 @@ class SelectMedicamentUI(tk.Toplevel):
         tk.Button(search_frame, text="Rechercher", command=self.search).pack(side="left")
         tk.Button(search_frame, text="Tout afficher", command=self.load).pack(side="left")
 
-        # ===== TABLE =====
         self.table = ttk.Treeview(
             self,
             columns=("id", "code", "nom", "prix", "stock"),
-            show="headings"
+            show="headings",
         )
 
         for c, t in {
@@ -34,7 +35,7 @@ class SelectMedicamentUI(tk.Toplevel):
             "code": "Code",
             "nom": "Nom",
             "prix": "Prix (€)",
-            "stock": "Stock"
+            "stock": "Stock",
         }.items():
             self.table.heading(c, text=t)
             self.table.column(c, anchor="center")
@@ -42,17 +43,18 @@ class SelectMedicamentUI(tk.Toplevel):
         self.table.pack(expand=True, fill="both", padx=10, pady=10)
         self.table.bind("<Double-1>", self.open_detail)
 
-        # ===== ACTION =====
         tk.Button(
             self,
             text="Ajouter au panier",
             bg="#4CAF50",
             fg="white",
-            command=self.add_to_cart
+            command=self.add_to_cart,
         ).pack(pady=10)
 
         self.medicaments = []
         self.load()
+
+        autosize_and_center(self, min_w=850, min_h=500)
 
     def load(self):
         self.medicaments = get_medicaments_for_sale()

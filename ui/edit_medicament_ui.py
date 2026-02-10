@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import messagebox
+
 from services.medicament_service import get_medicament_by_id, update_medicament
+from utils.window import autosize_and_center
+
 
 class EditMedicamentUI(tk.Toplevel):
     def __init__(self, parent, med_id, refresh_callback):
@@ -9,7 +12,6 @@ class EditMedicamentUI(tk.Toplevel):
         self.refresh_callback = refresh_callback
 
         self.title("Modifier un médicament")
-        self.geometry("400x380")
         self.resizable(False, False)
 
         med = get_medicament_by_id(med_id)
@@ -26,7 +28,7 @@ class EditMedicamentUI(tk.Toplevel):
             ("Catégorie", "categorie", med[3]),
             ("Prix (€)", "prix", med[4]),
             ("Stock", "stock", med[5]),
-            ("Péremption (YYYY-MM-DD)", "peremption", med[6])
+            ("Péremption (YYYY-MM-DD)", "peremption", med[6]),
         ]
 
         for i, (label, key, value) in enumerate(fields):
@@ -41,8 +43,10 @@ class EditMedicamentUI(tk.Toplevel):
             text="Enregistrer",
             bg="#2196F3",
             fg="white",
-            command=self.save
+            command=self.save,
         ).grid(row=len(fields), columnspan=2, pady=20)
+
+        autosize_and_center(self, min_w=420, min_h=320)
 
     def save(self):
         try:
