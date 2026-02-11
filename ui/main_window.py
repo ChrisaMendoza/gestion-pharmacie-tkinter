@@ -13,7 +13,9 @@ from ui.ordonnance_history_ui import OrdonnanceHistoryUI
 from modules.prescriptions_view import PrescriptionsFrame
 from modules.sales_repository import SalesRepository
 from modules.prescriptions_repository import PrescriptionsRepository
+from modules.prescriptions_repository import PrescriptionsRepository
 from modules.clients_view import ClientsFrame
+from modules.stats_view import StatsFrame
 from utils.window import autosize_and_center
 
 
@@ -23,6 +25,7 @@ class MainWindow:
 
         self.clients_window = None
         self.ord_window = None
+        self.stats_window = None
 
         # IMPORTANT: root avant toute variable Tk
         self.root = tk.Tk()
@@ -180,6 +183,17 @@ class MainWindow:
             ).pack(padx=10, pady=(0, 10))
         else:
             tk.Label(admin_frame, text="Accès stocks non autorisé", fg="red").pack(padx=10, pady=(0, 10))
+
+        # Bouton Statistiques (juste en dessous des stocks)
+        # Réservé (par ex) aux ADMIN / PHARMACIEN
+        if self.user["role"] in ["ADMIN", "PHARMACIEN"]:
+            tk.Button(
+                admin_frame,
+                text="Statistiques",
+                width=30,
+                height=2,
+                command=self.open_stats,
+            ).pack(padx=10, pady=(0, 10))
 
         # ----- FINALISATION (en dessous des stocks) -----
         finalize = tk.LabelFrame(side_panel, text="Finalisation")
@@ -530,3 +544,25 @@ class MainWindow:
         win.destroy()
         if self.clients_window == win:
             self.clients_window = None
+
+    def open_stats(self):
+        if self.stats_window and self.stats_window.winfo_exists():
+            self.stats_window.focus()
+            return
+
+        win = tk.Toplevel(self.root)
+        win.title("Statistiques")
+
+        frame = StatsFrame(win)
+        frame.pack(fill="both", expand=True)
+
+        # Taille raisonnable pour voir les graphs
+        autosize_and_center(win, min_w=1000, min_h=700)
+
+        self.stats_window = win
+        win.protocol("WM_DELETE_WINDOW", lambda: self._close_stats(win))
+
+    def _close_stats(self, win):
+        win.destroy()
+        if self.stats_window == win:
+            self.stats_window = None
