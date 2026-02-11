@@ -195,10 +195,10 @@ class MainWindow:
             anchor="e", padx=10, pady=(6, 12)
         )
 
-        ttk.Button(finalize, text="Valider (enregistrer)", command=self.validate_sale).pack(
+        ttk.Button(finalize, text="Valider l'achat", command=self.validate_sale).pack(
             fill="x", padx=10, pady=(0, 6)
         )
-        ttk.Button(finalize, text="Générer facture (txt)", command=self.generate_invoice).pack(
+        ttk.Button(finalize, text="Générer la facture", command=self.generate_invoice).pack(
             fill="x", padx=10, pady=(0, 12)
         )
 
