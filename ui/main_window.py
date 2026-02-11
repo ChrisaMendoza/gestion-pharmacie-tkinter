@@ -13,7 +13,6 @@ from ui.ordonnance_history_ui import OrdonnanceHistoryUI
 from modules.prescriptions_view import PrescriptionsFrame
 from modules.sales_repository import SalesRepository
 from modules.prescriptions_repository import PrescriptionsRepository
-from modules.prescriptions_repository import PrescriptionsRepository
 from modules.clients_view import ClientsFrame
 from modules.stats_view import StatsFrame
 from utils.window import autosize_and_center
@@ -90,44 +89,45 @@ class MainWindow:
         ttk.Button(btns, text="Gestion clients", command=self.open_clients).pack(side="right")
 
         # ----- ORDONNANCE -----
-        ord_frame = tk.LabelFrame(top_frame, text="Ordonnance")
-        ord_frame.pack(side="left", expand=True, fill="both", padx=5)
+        if self.user["role"] in ["ADMIN", "PHARMACIEN", "PREPARATEUR"]:
+            ord_frame = tk.LabelFrame(top_frame, text="Ordonnance")
+            ord_frame.pack(side="left", expand=True, fill="both", padx=5)
 
-        info = ttk.LabelFrame(ord_frame, text="Dernière ordonnance validée")
-        info.pack(fill="x", padx=10, pady=(6, 6))
+            info = ttk.LabelFrame(ord_frame, text="Dernière ordonnance validée")
+            info.pack(fill="x", padx=10, pady=(6, 6))
 
-        row1 = ttk.Frame(info)
-        row1.pack(fill="x", padx=8, pady=6)
-        ttk.Label(row1, text="Prescripteur :").pack(side="left")
-        ttk.Entry(row1, textvariable=self.ord_medecin_var, state="readonly", width=26).pack(
-            side="left", padx=6
-        )
+            row1 = ttk.Frame(info)
+            row1.pack(fill="x", padx=8, pady=6)
+            ttk.Label(row1, text="Prescripteur :").pack(side="left")
+            ttk.Entry(row1, textvariable=self.ord_medecin_var, state="readonly", width=26).pack(
+                side="left", padx=6
+            )
 
-        ttk.Label(row1, text="Date ordonnance :").pack(side="left", padx=(12, 0))
-        ttk.Entry(row1, textvariable=self.ord_date_var, state="readonly", width=14).pack(side="left", padx=6)
+            ttk.Label(row1, text="Date ordonnance :").pack(side="left", padx=(12, 0))
+            ttk.Entry(row1, textvariable=self.ord_date_var, state="readonly", width=14).pack(side="left", padx=6)
 
-        row2 = ttk.Frame(info)
-        row2.pack(fill="x", padx=8, pady=(0, 6))
-        ttk.Label(row2, text="Date saisie :").pack(side="left")
-        ttk.Entry(row2, textvariable=self.ord_date_saisie_var, state="readonly", width=20).pack(
-            side="left", padx=6
-        )
+            row2 = ttk.Frame(info)
+            row2.pack(fill="x", padx=8, pady=(0, 6))
+            ttk.Label(row2, text="Date saisie :").pack(side="left")
+            ttk.Entry(row2, textvariable=self.ord_date_saisie_var, state="readonly", width=20).pack(
+                side="left", padx=6
+            )
 
-        row3 = ttk.Frame(info)
-        row3.pack(fill="x", padx=8, pady=(0, 8))
-        ttk.Label(row3, text="Fichiers :").pack(side="left")
-        self.ord_files_list = tk.Listbox(row3, height=3)
-        self.ord_files_list.pack(side="left", fill="x", expand=True, padx=6)
-        self.ord_files_list.bind("<Double-Button-1>", lambda _e: self.preview_selected_ord_file())
-        ttk.Button(row3, text="Aperçu", command=self.preview_selected_ord_file).pack(side="left")
+            row3 = ttk.Frame(info)
+            row3.pack(fill="x", padx=8, pady=(0, 8))
+            ttk.Label(row3, text="Fichiers :").pack(side="left")
+            self.ord_files_list = tk.Listbox(row3, height=3)
+            self.ord_files_list.pack(side="left", fill="x", expand=True, padx=6)
+            self.ord_files_list.bind("<Double-Button-1>", lambda _e: self.preview_selected_ord_file())
+            ttk.Button(row3, text="Aperçu", command=self.preview_selected_ord_file).pack(side="left")
 
-        # Boutons (sous les fichiers) : Traiter + Historique à droite
-        ord_actions = ttk.Frame(ord_frame)
-        ord_actions.pack(fill="x", padx=10, pady=(0, 10))
-        ttk.Button(ord_actions, text="Traiter l'ordonnance", command=self.open_prescriptions).pack(side="left")
-        ttk.Button(ord_actions, text="Historique ordonnances", command=self.open_ordonnance_history).pack(
-            side="left", padx=10
-        )
+            # Boutons (sous les fichiers) : Traiter + Historique à droite
+            ord_actions = ttk.Frame(ord_frame)
+            ord_actions.pack(fill="x", padx=10, pady=(0, 10))
+            ttk.Button(ord_actions, text="Traiter l'ordonnance", command=self.open_prescriptions).pack(side="left")
+            ttk.Button(ord_actions, text="Historique ordonnances", command=self.open_ordonnance_history).pack(
+                side="left", padx=10
+            )
 
         # ================= FRAME BAS =================
         bottom_frame = tk.Frame(main_frame)
