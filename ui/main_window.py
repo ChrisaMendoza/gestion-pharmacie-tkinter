@@ -1,9 +1,14 @@
+import os
+import subprocess
+import sys
 import tkinter as tk
+from datetime import datetime
 from tkinter import ttk, messagebox
 
 from ui.stock_ui import StockUI
 from ui.select_medicament_ui import SelectMedicamentUI
 from ui.client_picker_ui import ClientPickerUI
+from ui.ordonnance_history_ui import OrdonnanceHistoryUI
 
 from modules.prescriptions_view import PrescriptionsFrame
 from modules.sales_repository import SalesRepository
@@ -34,21 +39,13 @@ class MainWindow:
         self.client_label_var = tk.StringVar(master=self.root, value="Client : (aucun)")
 
         # ===== Panier (mixte) =====
-        # dict:
-        # {
-        #   "medicament_id": int,
-        #   "code": str,
-        #   "nom": str,
-        #   "quantite": int,
-        #   "prix_unitaire": float,
-        #   "ordonnance": bool
-        # }
         self.cart_lines = []
 
-        # ===== Infos ordonnance (stockées côté main) =====
-        self.ord_numero_var = tk.StringVar(master=self.root, value="")
+        # ===== Infos ordonnance (affichées côté main après validation ordonnance) =====
         self.ord_medecin_var = tk.StringVar(master=self.root, value="")
         self.ord_date_var = tk.StringVar(master=self.root, value="")
+        self.ord_date_saisie_var = tk.StringVar(master=self.root, value="")
+        self.ord_files = []  # list[str] chemins absolus
 
         # ===== Finalisation =====
         self.remise_var = tk.StringVar(master=self.root, value="0")
@@ -89,18 +86,44 @@ class MainWindow:
         ttk.Button(btns, text="Désassocier", command=self.detach_client).pack(side="left", padx=6)
         ttk.Button(btns, text="Gestion clients", command=self.open_clients).pack(side="right")
 
-        # ----- ORDONNANCE (fenêtre d'avant) -----
+        # ----- ORDONNANCE -----
         ord_frame = tk.LabelFrame(top_frame, text="Ordonnance")
         ord_frame.pack(side="left", expand=True, fill="both", padx=5)
 
-        ttk.Label(
-            ord_frame,
-            text="Ouvre la fenêtre Ordonnances (ancienne UI).\nValider = ajoute au panier (prix 0€).",
-            foreground="gray",
-        ).pack(padx=10, pady=(12, 6), anchor="w")
+        info = ttk.LabelFrame(ord_frame, text="Dernière ordonnance validée")
+        info.pack(fill="x", padx=10, pady=(6, 6))
 
-        ttk.Button(ord_frame, text="Traiter ordonnance", command=self.open_prescriptions).pack(
-            padx=10, pady=6, anchor="w"
+        row1 = ttk.Frame(info)
+        row1.pack(fill="x", padx=8, pady=6)
+        ttk.Label(row1, text="Prescripteur :").pack(side="left")
+        ttk.Entry(row1, textvariable=self.ord_medecin_var, state="readonly", width=26).pack(
+            side="left", padx=6
+        )
+
+        ttk.Label(row1, text="Date ordonnance :").pack(side="left", padx=(12, 0))
+        ttk.Entry(row1, textvariable=self.ord_date_var, state="readonly", width=14).pack(side="left", padx=6)
+
+        row2 = ttk.Frame(info)
+        row2.pack(fill="x", padx=8, pady=(0, 6))
+        ttk.Label(row2, text="Date saisie :").pack(side="left")
+        ttk.Entry(row2, textvariable=self.ord_date_saisie_var, state="readonly", width=20).pack(
+            side="left", padx=6
+        )
+
+        row3 = ttk.Frame(info)
+        row3.pack(fill="x", padx=8, pady=(0, 8))
+        ttk.Label(row3, text="Fichiers :").pack(side="left")
+        self.ord_files_list = tk.Listbox(row3, height=3)
+        self.ord_files_list.pack(side="left", fill="x", expand=True, padx=6)
+        self.ord_files_list.bind("<Double-Button-1>", lambda _e: self.preview_selected_ord_file())
+        ttk.Button(row3, text="Aperçu", command=self.preview_selected_ord_file).pack(side="left")
+
+        # Boutons (sous les fichiers) : Traiter + Historique à droite
+        ord_actions = ttk.Frame(ord_frame)
+        ord_actions.pack(fill="x", padx=10, pady=(0, 10))
+        ttk.Button(ord_actions, text="Traiter l'ordonnance", command=self.open_prescriptions).pack(side="left")
+        ttk.Button(ord_actions, text="Historique ordonnances", command=self.open_ordonnance_history).pack(
+            side="left", padx=10
         )
 
         # ================= FRAME BAS =================
@@ -180,7 +203,7 @@ class MainWindow:
         )
 
         self.refresh_cart()
-        autosize_and_center(self.root, min_w=1250, min_h=720)
+        autosize_and_center(self.root, min_w=1350, min_h=760)
         self.root.mainloop()
 
     def _ro_field(self, parent, label, var, row, col):
@@ -188,6 +211,24 @@ class MainWindow:
         ttk.Entry(parent, textvariable=var, state="readonly", width=26).grid(
             row=row, column=col + 1, sticky="ew", pady=6
         )
+
+    # ================= Utils fichier =================
+
+    def _open_file(self, path: str):
+        if not path:
+            return
+        if not os.path.exists(path):
+            messagebox.showerror("Erreur", "Fichier introuvable (chemin invalide).")
+            return
+        try:
+            if sys.platform.startswith("darwin"):
+                subprocess.Popen(["open", path])
+            elif os.name == "nt":
+                os.startfile(path)  # type: ignore[attr-defined]
+            else:
+                subprocess.Popen(["xdg-open", path])
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'ouvrir le fichier : {e}")
 
     # ================= CLIENT =================
 
@@ -214,7 +255,16 @@ class MainWindow:
         self.client_secu_var.set("")
         self.client_label_var.set("Client : (aucun)")
 
-    # ================= ORDONNANCES (fenêtre d'avant) =================
+    # ================= Historique ordonnances =================
+
+    def open_ordonnance_history(self):
+        if not self.selected_client_id:
+            messagebox.showwarning("Attention", "Sélectionnez d'abord un client dans la fenêtre principale.")
+            return
+        client_label = f"{self.client_prenom_var.get()} {self.client_nom_var.get()}".strip()
+        OrdonnanceHistoryUI(self.root, client_id=int(self.selected_client_id), client_label=client_label)
+
+    # ================= ORDONNANCES =================
 
     def open_prescriptions(self):
         if self.ord_window and self.ord_window.winfo_exists():
@@ -246,8 +296,23 @@ class MainWindow:
         if self.ord_window == win:
             self.ord_window = None
 
+    def _refresh_ord_files_list(self):
+        self.ord_files_list.delete(0, tk.END)
+        for p in self.ord_files:
+            self.ord_files_list.insert(tk.END, os.path.basename(p))
+
+    def preview_selected_ord_file(self):
+        sel = self.ord_files_list.curselection()
+        if not sel:
+            messagebox.showwarning("Attention", "Sélectionnez un fichier.")
+            return
+        idx = int(sel[0])
+        if idx < 0 or idx >= len(self.ord_files):
+            return
+        self._open_file(self.ord_files[idx])
+
     def on_ordonnance_validated(self, client: dict, ordonnance_info: dict, lines: list[dict]):
-        # Associe automatiquement le client dans la main
+        # (optionnel) re-associe le client dans la main
         if client and client.get("id"):
             self.selected_client_id = int(client["id"])
             self.client_nom_var.set(client.get("nom", ""))
@@ -257,10 +322,17 @@ class MainWindow:
                 f"Client : {client.get('prenom','')} {client.get('nom','')} (ID {client['id']})".strip()
             )
 
-        # Sauve les infos ordonnance pour la validation DB (si tu valides ensuite)
-        self.ord_numero_var.set((ordonnance_info.get("numero") or "").strip())
-        self.ord_medecin_var.set((ordonnance_info.get("medecin") or "").strip())
-        self.ord_date_var.set((ordonnance_info.get("date_ordonnance") or "").strip())
+        # Affiche infos ordonnance (après validation dans la fenêtre ordonnance)
+        med = (ordonnance_info.get("medecin") or "").strip()
+        dt = (ordonnance_info.get("date_ordonnance") or "").strip()
+        ds = (ordonnance_info.get("date_saisie") or "").strip() or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        files = ordonnance_info.get("files") or []
+
+        self.ord_medecin_var.set(med)
+        self.ord_date_var.set(dt)
+        self.ord_date_saisie_var.set(ds)
+        self.ord_files = list(files)
+        self._refresh_ord_files_list()
 
         # Ajoute les lignes ordonnance au panier main (prix=0)
         for line in lines:
@@ -387,9 +459,11 @@ class MainWindow:
         try:
             if has_ord:
                 info = {
-                    "numero": self.ord_numero_var.get(),
+                    "numero": "",
                     "medecin": self.ord_medecin_var.get(),
                     "date_ordonnance": self.ord_date_var.get(),
+                    "date_saisie": self.ord_date_saisie_var.get() or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "files": list(self.ord_files),
                 }
                 ord_id, vente_id = PrescriptionsRepository.create_prescription_sale(
                     client_id=int(self.selected_client_id),

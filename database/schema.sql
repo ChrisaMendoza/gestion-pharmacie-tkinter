@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS ordonnances (
                                            medecin TEXT,
                                            date_ordonnance DATE,
                                            date_saisie DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                           fichiers TEXT,
                                            FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
 );
 

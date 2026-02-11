@@ -1,3 +1,5 @@
+import json
+
 from database.db import get_connection
 
 
@@ -12,21 +14,26 @@ class PrescriptionsRepository:
         try:
             cur = conn.cursor()
             if not q:
-                cur.execute("""
-                            SELECT id, code, nom_commercial, COALESCE(dosage,''), COALESCE(prix_vente,0), COALESCE(stock_actuel,0), COALESCE(date_peremption,'')
-                            FROM medicaments
-                            ORDER BY nom_commercial ASC
-                                LIMIT 200
-                            """)
+                cur.execute(
+                    """
+                    SELECT id, code, nom_commercial, COALESCE(dosage,''), COALESCE(prix_vente,0), COALESCE(stock_actuel,0), COALESCE(date_peremption,'')
+                    FROM medicaments
+                    ORDER BY nom_commercial ASC
+                        LIMIT 200
+                    """
+                )
             else:
                 like = f"%{q}%"
-                cur.execute("""
-                            SELECT id, code, nom_commercial, COALESCE(dosage,''), COALESCE(prix_vente,0), COALESCE(stock_actuel,0), COALESCE(date_peremption,'')
-                            FROM medicaments
-                            WHERE code LIKE ? OR nom_commercial LIKE ? OR nom_generique LIKE ? OR categorie LIKE ?
-                            ORDER BY nom_commercial ASC
-                                LIMIT 200
-                            """, (like, like, like, like))
+                cur.execute(
+                    """
+                    SELECT id, code, nom_commercial, COALESCE(dosage,''), COALESCE(prix_vente,0), COALESCE(stock_actuel,0), COALESCE(date_peremption,'')
+                    FROM medicaments
+                    WHERE code LIKE ? OR nom_commercial LIKE ? OR nom_generique LIKE ? OR categorie LIKE ?
+                    ORDER BY nom_commercial ASC
+                        LIMIT 200
+                    """,
+                    (like, like, like, like),
+                )
             return cur.fetchall()
         finally:
             conn.close()
@@ -45,16 +52,19 @@ class PrescriptionsRepository:
         conn = get_connection()
         try:
             cur = conn.cursor()
-            cur.execute("""
-                        SELECT id, nom, prenom, telephone, COALESCE(email,''), COALESCE(carte_fidelite,'')
-                        FROM clients
-                        WHERE telephone = ?
-                           OR secu = ?
-                           OR nom LIKE ?
-                           OR prenom LIKE ?
-                        ORDER BY nom ASC, prenom ASC
-                            LIMIT 1
-                        """, (q, q, like, like))
+            cur.execute(
+                """
+                SELECT id, nom, prenom, telephone, COALESCE(email,''), COALESCE(carte_fidelite,'')
+                FROM clients
+                WHERE telephone = ?
+                   OR secu = ?
+                   OR nom LIKE ?
+                   OR prenom LIKE ?
+                ORDER BY nom ASC, prenom ASC
+                    LIMIT 1
+                """,
+                (q, q, like, like),
+            )
             return cur.fetchone()
         finally:
             conn.close()
@@ -70,12 +80,15 @@ class PrescriptionsRepository:
         conn = get_connection()
         try:
             cur = conn.cursor()
-            cur.execute("""
-                        SELECT id, nom, prenom, telephone, COALESCE(email,''), COALESCE(carte_fidelite,'')
-                        FROM clients
-                        WHERE telephone = ?
-                            LIMIT 1
-                        """, (p,))
+            cur.execute(
+                """
+                SELECT id, nom, prenom, telephone, COALESCE(email,''), COALESCE(carte_fidelite,'')
+                FROM clients
+                WHERE telephone = ?
+                    LIMIT 1
+                """,
+                (p,),
+            )
             return cur.fetchone()
         finally:
             conn.close()
@@ -86,10 +99,16 @@ class PrescriptionsRepository:
             ordonnance_info: dict,
             cart_lines: list[dict],
             remise: float = 0.0,
-            user_id: int | None = None
+            user_id: int | None = None,
     ) -> tuple[int, int]:
         """
-        ordonnance_info: {"numero": str, "medecin": str, "date_ordonnance": "YYYY-MM-DD" ou ""}
+        ordonnance_info: {
+          "numero": str,
+          "medecin": str (obligatoire),
+          "date_ordonnance": "YYYY-MM-DD" (obligatoire),
+          "date_saisie": "YYYY-MM-DD HH:MM:SS" (optionnel),
+          "files": ["/abs/path", ...] (optionnel)
+        }
 
         cart_lines: [{"medicament_id": int, "nom": str, "quantite": int, "prix_unitaire": float}, ...]
 
@@ -106,14 +125,26 @@ class PrescriptionsRepository:
 
         try:
             remise = float(remise or 0.0)
-        except:
+        except Exception:
             raise ValueError("Remise invalide.")
         if remise < 0:
             raise ValueError("La remise ne peut pas être négative.")
 
         numero = (ordonnance_info.get("numero") or "").strip() or None
-        medecin = (ordonnance_info.get("medecin") or "").strip() or None
-        date_ord = (ordonnance_info.get("date_ordonnance") or "").strip() or None
+        medecin = (ordonnance_info.get("medecin") or "").strip()
+        date_ord = (ordonnance_info.get("date_ordonnance") or "").strip()
+        date_saisie = (ordonnance_info.get("date_saisie") or "").strip() or None
+
+        if not medecin:
+            raise ValueError("Le médecin est obligatoire.")
+        if not date_ord:
+            raise ValueError("La date de l'ordonnance est obligatoire.")
+
+        files = ordonnance_info.get("files") or []
+        try:
+            fichiers_json = json.dumps(list(files), ensure_ascii=False)
+        except Exception:
+            fichiers_json = "[]"
 
         total_brut = 0.0
         for line in cart_lines:
@@ -144,27 +175,36 @@ class PrescriptionsRepository:
                 if q > stock:
                     raise ValueError(f"Stock insuffisant pour '{nom}' : demandé {q}, disponible {stock}.")
 
-            # 2) Créer ordonnance
-            cur.execute("""
-                        INSERT INTO ordonnances (client_id, numero, medecin, date_ordonnance)
-                        VALUES (?, ?, ?, ?)
-                        """, (client_id, numero, medecin, date_ord))
+            # 2) Créer ordonnance (+ fichiers)
+            cur.execute(
+                """
+                INSERT INTO ordonnances (client_id, numero, medecin, date_ordonnance, date_saisie, fichiers)
+                VALUES (?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?)
+                """,
+                (client_id, numero, medecin, date_ord, date_saisie, fichiers_json),
+            )
             ordonnance_id = cur.lastrowid
 
             # 3) Lignes ordonnance
             for line in cart_lines:
                 med_id = int(line["medicament_id"])
                 q = int(line["quantite"])
-                cur.execute("""
-                            INSERT INTO ordonnance_lignes (ordonnance_id, medicament_id, quantite)
-                            VALUES (?, ?, ?)
-                            """, (ordonnance_id, med_id, q))
+                cur.execute(
+                    """
+                    INSERT INTO ordonnance_lignes (ordonnance_id, medicament_id, quantite)
+                    VALUES (?, ?, ?)
+                    """,
+                    (ordonnance_id, med_id, q),
+                )
 
             # 4) Créer vente associée (type ORDONNANCE)
-            cur.execute("""
-                        INSERT INTO ventes (client_id, type_vente, total, remise, user_id)
-                        VALUES (?, 'ORDONNANCE', ?, ?, ?)
-                        """, (client_id, total_net, remise, user_id))
+            cur.execute(
+                """
+                INSERT INTO ventes (client_id, type_vente, total, remise, user_id)
+                VALUES (?, 'ORDONNANCE', ?, ?, ?)
+                """,
+                (client_id, total_net, remise, user_id),
+            )
             vente_id = cur.lastrowid
 
             # 5) Vente lignes + stock + sorties_stock
@@ -174,28 +214,108 @@ class PrescriptionsRepository:
                 pu = float(line["prix_unitaire"])
                 sous_total = q * pu
 
-                cur.execute("""
-                            INSERT INTO vente_lignes (vente_id, medicament_id, quantite, prix_unitaire, sous_total)
-                            VALUES (?, ?, ?, ?, ?)
-                            """, (vente_id, med_id, q, pu, sous_total))
+                cur.execute(
+                    """
+                    INSERT INTO vente_lignes (vente_id, medicament_id, quantite, prix_unitaire, sous_total)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (vente_id, med_id, q, pu, sous_total),
+                )
 
-                cur.execute("""
-                            UPDATE medicaments
-                            SET stock_actuel = stock_actuel - ?
-                            WHERE id = ?
-                            """, (q, med_id))
+                cur.execute(
+                    """
+                    UPDATE medicaments
+                    SET stock_actuel = stock_actuel - ?
+                    WHERE id = ?
+                    """,
+                    (q, med_id),
+                )
 
-                cur.execute("""
-                            INSERT INTO sorties_stock (medicament_id, quantite, motif)
-                            VALUES (?, ?, ?)
-                            """, (med_id, q, f"VENTE ORDONNANCE #{vente_id} (ORD#{ordonnance_id})"))
+                cur.execute(
+                    """
+                    INSERT INTO sorties_stock (medicament_id, quantite, motif)
+                    VALUES (?, ?, ?)
+                    """,
+                    (med_id, q, f"VENTE ORDONNANCE #{vente_id} (ORD#{ordonnance_id})"),
+                )
 
             conn.commit()
             return ordonnance_id, vente_id
 
-        except:
+        except Exception:
             conn.rollback()
             raise
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_ordonnances_by_client(client_id: int) -> list[dict]:
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT id, COALESCE(medecin,''), COALESCE(date_ordonnance,''), COALESCE(date_saisie,''), COALESCE(fichiers,'[]')
+                FROM ordonnances
+                WHERE client_id = ?
+                ORDER BY date_saisie DESC, id DESC
+                    LIMIT 200
+                """,
+                (int(client_id),),
+            )
+            out = []
+            for (oid, med, dord, dsaisie, fichiers) in cur.fetchall():
+                try:
+                    files = json.loads(fichiers or "[]")
+                    if not isinstance(files, list):
+                        files = []
+                except Exception:
+                    files = []
+                out.append(
+                    {
+                        "id": int(oid),
+                        "medecin": med,
+                        "date_ordonnance": dord,
+                        "date_saisie": dsaisie,
+                        "files": files,
+                    }
+                )
+            return out
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_ordonnance_by_id(ordonnance_id: int) -> dict | None:
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT id, client_id, COALESCE(medecin,''), COALESCE(date_ordonnance,''), COALESCE(date_saisie,''), COALESCE(fichiers,'[]')
+                FROM ordonnances
+                WHERE id = ?
+                    LIMIT 1
+                """,
+                (int(ordonnance_id),),
+            )
+            r = cur.fetchone()
+            if not r:
+                return None
+            oid, cid, med, dord, dsaisie, fichiers = r
+            try:
+                files = json.loads(fichiers or "[]")
+                if not isinstance(files, list):
+                    files = []
+            except Exception:
+                files = []
+            return {
+                "id": int(oid),
+                "client_id": int(cid),
+                "medecin": med,
+                "date_ordonnance": dord,
+                "date_saisie": dsaisie,
+                "files": files,
+            }
         finally:
             conn.close()
 
@@ -208,36 +328,45 @@ class PrescriptionsRepository:
         try:
             cur = conn.cursor()
 
-            cur.execute("""
-                        SELECT o.id, COALESCE(o.numero,''), COALESCE(o.medecin,''), COALESCE(o.date_ordonnance,''), o.date_saisie,
-                               c.nom, c.prenom, c.telephone, COALESCE(c.email,'')
-                        FROM ordonnances o
-                                 JOIN clients c ON c.id = o.client_id
-                        WHERE o.id = ?
-                        """, (ordonnance_id,))
+            cur.execute(
+                """
+                SELECT o.id, COALESCE(o.numero,''), COALESCE(o.medecin,''), COALESCE(o.date_ordonnance,''), o.date_saisie,
+                       c.nom, c.prenom, c.telephone, COALESCE(c.email,'')
+                FROM ordonnances o
+                         JOIN clients c ON c.id = o.client_id
+                WHERE o.id = ?
+                """,
+                (ordonnance_id,),
+            )
             o = cur.fetchone()
             if not o:
                 raise ValueError("Ordonnance introuvable.")
 
             (oid, onum, omed, odt, osaisie, cn, cp, ctel, cemail) = o
 
-            cur.execute("""
-                        SELECT v.id, v.total, v.remise, v.date_vente
-                        FROM ventes v
-                        WHERE v.id = ?
-                        """, (vente_id,))
+            cur.execute(
+                """
+                SELECT v.id, v.total, v.remise, v.date_vente
+                FROM ventes v
+                WHERE v.id = ?
+                """,
+                (vente_id,),
+            )
             v = cur.fetchone()
             if not v:
                 raise ValueError("Vente introuvable.")
             (vid, total, remise, dvente) = v
 
-            cur.execute("""
-                        SELECT m.nom_commercial, vl.quantite, vl.prix_unitaire, vl.sous_total
-                        FROM vente_lignes vl
-                                 JOIN medicaments m ON m.id = vl.medicament_id
-                        WHERE vl.vente_id = ?
-                        ORDER BY m.nom_commercial ASC
-                        """, (vente_id,))
+            cur.execute(
+                """
+                SELECT m.nom_commercial, vl.quantite, vl.prix_unitaire, vl.sous_total
+                FROM vente_lignes vl
+                         JOIN medicaments m ON m.id = vl.medicament_id
+                WHERE vl.vente_id = ?
+                ORDER BY m.nom_commercial ASC
+                """,
+                (vente_id,),
+            )
             lines = cur.fetchall()
 
             t = []
@@ -263,6 +392,8 @@ class PrescriptionsRepository:
                 f.append(f"Médecin: {omed}")
             if odt:
                 f.append(f"Date ordonnance: {odt}")
+            if osaisie:
+                f.append(f"Date saisie: {osaisie}")
             f.append(f"Date vente: {dvente}")
             f.append("")
             f.append("Client :")
@@ -286,6 +417,7 @@ class PrescriptionsRepository:
     @staticmethod
     def save_docs_to_files(ordonnance_id: int, vente_id: int, folder: str = "docs") -> tuple[str, str]:
         import os
+
         os.makedirs(folder, exist_ok=True)
         ticket, facture = PrescriptionsRepository.get_prescription_docs_text(ordonnance_id, vente_id)
         ticket_path = os.path.join(folder, f"ticket_ordonnance_{ordonnance_id}_vente_{vente_id}.txt")

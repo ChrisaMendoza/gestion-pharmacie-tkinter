@@ -1,4 +1,6 @@
+import hashlib
 import sqlite3
+
 from config import DB_NAME
 
 
@@ -20,11 +22,15 @@ def init_db():
 def migrate_db():
     """
     Migre la base existante (SQLite) sans perdre les données.
-    Ici: ajoute date_naissance + secu si absent, et crée l'index unique sur secu.
+
+    - clients: ajoute date_naissance + secu si absents + index unique sur secu
+    - ordonnances: ajoute fichiers si absent (JSON de chemins de scans)
     """
     conn = get_connection()
     try:
         cur = conn.cursor()
+
+        # --- clients ---
         cur.execute("PRAGMA table_info(clients)")
         cols = {row[1] for row in cur.fetchall()}
 
@@ -34,18 +40,24 @@ def migrate_db():
         if "secu" not in cols:
             cur.execute("ALTER TABLE clients ADD COLUMN secu TEXT")
 
-        cur.execute("""
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_secu_unique
-                        ON clients(secu)
-                        WHERE secu IS NOT NULL AND secu <> ''
-                    """)
+        cur.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_secu_unique
+                ON clients(secu)
+                WHERE secu IS NOT NULL AND secu <> ''
+            """
+        )
+
+        # --- ordonnances ---
+        cur.execute("PRAGMA table_info(ordonnances)")
+        ocols = {row[1] for row in cur.fetchall()}
+
+        if "fichiers" not in ocols:
+            cur.execute("ALTER TABLE ordonnances ADD COLUMN fichiers TEXT")
 
         conn.commit()
     finally:
         conn.close()
-
-
-import hashlib
 
 
 def hash_password(password):

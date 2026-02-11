@@ -399,6 +399,7 @@ class PrescriptionsFrame(ttk.Frame):
             "numero": "",  # supprimé
             "medecin": medecin,
             "date_ordonnance": date_ord,
+            "date_saisie": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "files": list(self.attachments),
         }
 
@@ -425,7 +426,7 @@ class PrescriptionsFrame(ttk.Frame):
             self.winfo_toplevel().destroy()
             return
 
-        # Si tu utilises le mode DB, ça enregistrera quand même (numero vide)
+        # Mode DB (enregistre directement)
         try:
             PrescriptionsRepository.create_prescription_sale(
                 client_id=self.client_id,
