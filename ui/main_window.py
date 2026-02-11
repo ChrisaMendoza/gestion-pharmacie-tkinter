@@ -128,6 +128,9 @@ class MainWindow:
             ttk.Button(ord_actions, text="Historique ordonnances", command=self.open_ordonnance_history).pack(
                 side="left", padx=10
             )
+            ttk.Button(ord_actions, text="Effacer", command=self.clear_ordonnance_info).pack(
+                side="left", padx=10
+            )
 
         # ================= FRAME BAS =================
         bottom_frame = tk.Frame(main_frame)
@@ -243,6 +246,14 @@ class MainWindow:
                 subprocess.Popen(["xdg-open", path])
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible d'ouvrir le fichier : {e}")
+
+    # ================= ORDONNANCE : Clear =================
+    def clear_ordonnance_info(self):
+        self.ord_medecin_var.set("")
+        self.ord_date_var.set("")
+        self.ord_date_saisie_var.set("")
+        self.ord_files = []
+        self.ord_files_list.delete(0, tk.END)
 
     # ================= CLIENT =================
 
@@ -509,7 +520,7 @@ class MainWindow:
 
     def generate_invoice(self):
         if not self.last_sale_id:
-            messagebox.showwarning("Attention", "Aucune vente validée.")
+            messagebox.showerror("Erreur", "Veuillez valider l'achat avant de générer la facture.")
             return
         try:
             if self.last_ordonnance_id:
